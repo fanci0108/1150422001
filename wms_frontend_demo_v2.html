@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WMS 倉儲管理系統｜純前端展示版</title>
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#111827; --card:#1f2937; --muted:#94a3b8;
+      --text:#e5e7eb; --accent:#f97316; --accent2:#38bdf8; --ok:#22c55e;
+      --danger:#ef4444; --warn:#facc15; --line:#334155;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"Microsoft JhengHei",Arial,sans-serif;background:var(--bg);color:var(--text)}
+    header{padding:22px 28px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#111827,#0f172a)}
+    h1{margin:0;font-size:28px}
+    h2{margin-top:0}
+    .sub{color:var(--muted);margin-top:8px}
+    .wrap{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 88px)}
+    nav{background:#0b1220;border-right:1px solid var(--line);padding:18px}
+    nav button{width:100%;text-align:left;margin-bottom:10px;padding:12px 14px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;cursor:pointer}
+    nav button.active, nav button:hover{border-color:var(--accent);color:#fff}
+    main{padding:22px;overflow:auto}
+    section{display:none}
+    section.active{display:block}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px;margin-bottom:18px}
+    .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+    .stat b{font-size:26px;color:var(--accent2)}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+    label{display:block;color:var(--muted);margin:10px 0 6px}
+    input,select{width:100%;padding:11px;border-radius:9px;border:1px solid var(--line);background:#0b1220;color:var(--text)}
+    input[type="checkbox"]{width:auto;transform:scale(1.2);margin-right:8px}
+    .form{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .form4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+    button.primary{background:var(--accent);border:none;color:#fff;border-radius:9px;padding:11px 16px;cursor:pointer}
+    button.secondary{background:#334155;border:none;color:#fff;border-radius:9px;padding:11px 16px;cursor:pointer}
+    button.danger{background:var(--danger);border:none;color:#fff;border-radius:9px;padding:8px 12px;cursor:pointer}
+    button.warn{background:#ca8a04;border:none;color:#fff;border-radius:9px;padding:8px 12px;cursor:pointer}
+    button.small{padding:7px 10px;border-radius:8px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border-bottom:1px solid var(--line);padding:11px;text-align:left;vertical-align:middle}
+    th{color:#cbd5e1;background:#0b1220}
+    .tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#0b1220;border:1px solid var(--line);color:#cbd5e1}
+    .lock{border-color:var(--warn);color:var(--warn)}
+    .ok{color:var(--ok)} .bad{color:var(--danger)} .warntext{color:var(--warn)}
+    .flow{display:flex;gap:8px;flex-wrap:wrap}
+    .flow span{background:#0b1220;border:1px solid var(--line);padding:10px 12px;border-radius:10px}
+    .hint{color:var(--muted);font-size:14px;line-height:1.7}
+    .thumb{width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#0b1220}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:24px;z-index:20}
+    .modal.active{display:flex}
+    .modalBox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(900px,100%);max-height:90vh;overflow:auto}
+    @media(max-width:1000px){.wrap{grid-template-columns:1fr}.grid,.form,.form4{grid-template-columns:1fr}nav{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>WMS 倉儲管理系統｜純前端展示版</h1>
+  <div class="sub">商品建立 → 儲位建立/鎖定 → 入庫驗證 → 庫存查詢 → 調撥 → 報表匯出</div>
+</header>
+
+<div class="wrap">
+<nav>
+  <button class="active" onclick="show('dashboard',this)">首頁總覽</button>
+  <button onclick="show('products',this)">商品建立</button>
+  <button onclick="show('locations',this)">儲位管理</button>
+  <button onclick="show('inbound',this)">入庫作業</button>
+  <button onclick="show('stock',this)">庫存查詢</button>
+  <button onclick="show('transfer',this)">調撥管理</button>
+  <button onclick="show('records',this)">異動紀錄</button>
+  <button onclick="show('export',this)">報表匯出</button>
+</nav>
+
+<main>
+<section id="dashboard" class="active">
+  <div class="grid">
+    <div class="stat">商品數<br><b id="statProducts">0</b></div>
+    <div class="stat">庫存總量<br><b id="statQty">0</b></div>
+    <div class="stat">儲位數<br><b id="statLoc">0</b></div>
+    <div class="stat">異動筆數<br><b id="statMove">0</b></div>
+  </div>
+  <div class="card">
+    <h2>系統流程</h2>
+    <div class="flow">
+      <span>1 商品建立</span><span>→</span><span>2 儲位建立</span><span>→</span><span>3 入庫驗證</span><span>→</span><span>4 批號管理</span><span>→</span><span>5 庫存查詢</span><span>→</span><span>6 調撥</span><span>→</span><span>7 匯出報表</span>
+    </div>
+    <p class="hint">儲位可設定「鎖儲位」與「鎖料碼」。入庫與調撥時會檢查，不符合會阻擋。</p>
+    <div class="actions">
+      <button class="primary" onclick="seed()">產生展示資料</button>
+      <button class="secondary" onclick="clearAll()">清除展示資料</button>
+    </div>
+  </div>
+</section>
+
+<section id="products">
+  <div class="card">
+    <h2>商品建立</h2>
+    <div class="form4">
+      <div><label>料碼</label><input id="pCode" placeholder="P-001"></div>
+      <div><label>品名</label><input id="pName" placeholder="軸承"></div>
+      <div><label>單位</label><input id="pUnit" placeholder="PCS"></div>
+      <div><label>重量 kg</label><input id="pWeight" type="number" step="0.01" placeholder="0.5"></div>
+      <div><label>長 cm</label><input id="pLen" type="number" step="0.01" placeholder="10"></div>
+      <div><label>寬 cm</label><input id="pWid" type="number" step="0.01" placeholder="8"></div>
+      <div><label>高 cm</label><input id="pHei" type="number" step="0.01" placeholder="5"></div>
+      <div><label>附件圖片</label><input id="pImg" type="file" accept="image/*"></div>
+    </div>
+    <div class="actions"><button class="primary" onclick="addProduct()">新增商品</button></div>
+  </div>
+  <div class="card"><h2>商品清單</h2><div id="productTable"></div></div>
+</section>
+
+<section id="locations">
+  <div class="card">
+    <h2>建立儲位 / 系統設置</h2>
+    <div class="form">
+      <div><label>儲位代碼</label><input id="lCode" placeholder="A1-1-101"></div>
+      <div><label>區域</label><input id="lArea" placeholder="A區 / OUT區 / 待驗區"></div>
+      <div><label>鎖定料碼</label><select id="lProduct"></select></div>
+      <div><label><input id="lLocked" type="checkbox">鎖儲位，不允許入庫/調撥進入</label></div>
+      <div><label><input id="lCodeLocked" type="checkbox">鎖料碼，僅允許指定料碼</label></div>
+    </div>
+    <div class="actions"><button class="primary" onclick="addLocation()">新增儲位</button></div>
+    <p class="hint">鎖儲位：此儲位暫停使用。鎖料碼：此儲位只能放指定料碼，避免混料。</p>
+  </div>
+  <div class="card"><h2>儲位清單</h2><div id="locationTable"></div></div>
+</section>
+
+<section id="inbound">
+  <div class="card">
+    <h2>入庫作業</h2>
+    <div class="form">
+      <div><label>商品</label><select id="inProduct"></select></div>
+      <div><label>批號</label><input id="inBatch" placeholder="B20260708"></div>
+      <div><label>儲位</label><select id="inLoc"></select></div>
+      <div><label>數量</label><input id="inQty" type="number" placeholder="100"></div>
+      <div><label>供應商</label><input id="inVendor" placeholder="XX供應商"></div>
+      <div><label>備註</label><input id="inNote" placeholder="進貨入庫"></div>
+    </div>
+    <div class="actions"><button class="primary" onclick="inbound()">確認入庫</button></div>
+  </div>
+</section>
+
+<section id="stock">
+  <div class="card">
+    <h2>庫存查詢</h2>
+    <div class="form">
+      <div><label>搜尋商品/批號/儲位</label><input id="stockSearch" oninput="render()" placeholder="輸入關鍵字"></div>
+    </div>
+    <div id="stockTable"></div>
+  </div>
+</section>
+
+<section id="transfer">
+  <div class="card">
+    <h2>調撥管理</h2>
+    <div class="form">
+      <div><label>來源庫存</label><select id="trStock"></select></div>
+      <div><label>調撥至儲位</label><select id="trLoc"></select></div>
+      <div><label>數量</label><input id="trQty" type="number" placeholder="10"></div>
+      <div><label>原因</label><input id="trReason" placeholder="工程維修借出 / 出貨預留"></div>
+    </div>
+    <div class="actions"><button class="primary" onclick="transfer()">確認調撥</button></div>
+  </div>
+</section>
+
+<section id="records">
+  <div class="card">
+    <h2>庫存異動紀錄</h2>
+    <div id="moveTable"></div>
+  </div>
+</section>
+
+<section id="export">
+  <div class="card">
+    <h2>報表匯出</h2>
+    <p class="hint">可匯出 CSV，模擬提供給採購、財會，不直接串接 SAP/ERP。</p>
+    <div class="actions">
+      <button class="primary" onclick="downloadCSV('stock')">匯出庫存報表 CSV</button>
+      <button class="secondary" onclick="downloadCSV('moves')">匯出異動紀錄 CSV</button>
+      <button class="secondary" onclick="downloadCSV('products')">匯出商品主檔 CSV</button>
+      <button class="secondary" onclick="downloadCSV('locations')">匯出儲位設定 CSV</button>
+    </div>
+  </div>
+</section>
+</main>
+</div>
+
+<div id="editModal" class="modal">
+  <div class="modalBox">
+    <h2>編輯商品</h2>
+    <input type="hidden" id="eOldCode">
+    <div class="form4">
+      <div><label>料碼</label><input id="eCode"></div>
+      <div><label>品名</label><input id="eName"></div>
+      <div><label>單位</label><input id="eUnit"></div>
+      <div><label>重量 kg</label><input id="eWeight" type="number" step="0.01"></div>
+      <div><label>長 cm</label><input id="eLen" type="number" step="0.01"></div>
+      <div><label>寬 cm</label><input id="eWid" type="number" step="0.01"></div>
+      <div><label>高 cm</label><input id="eHei" type="number" step="0.01"></div>
+      <div><label>更新附件圖片</label><input id="eImg" type="file" accept="image/*"></div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="saveEditProduct()">儲存修改</button>
+      <button class="secondary" onclick="closeEdit()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem('wms-demo-v2') || '{"products":[],"locations":[],"stock":[],"moves":[]}');
+
+function normalize(){
+  data.products = data.products || [];
+  data.locations = data.locations || [];
+  data.stock = data.stock || [];
+  data.moves = data.moves || [];
+}
+normalize();
+
+function save(){localStorage.setItem('wms-demo-v2',JSON.stringify(data));render();}
+function show(id,btn){document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();}
+function now(){return new Date().toLocaleString('zh-TW');}
+function addMove(type, productCode, batch, fromLoc, toLoc, qty, note){data.moves.unshift({time:now(),type,productCode,batch,fromLoc,toLoc,qty,note});}
+function fileToDataURL(file){
+  return new Promise((resolve)=>{
+    if(!file) return resolve('');
+    let r=new FileReader();
+    r.onload=()=>resolve(r.result);
+    r.readAsDataURL(file);
+  });
+}
+
+async function addProduct(){
+  let code=pCode.value.trim(), name=pName.value.trim(), unit=pUnit.value.trim()||'PCS';
+  if(!code||!name)return alert('請輸入料碼與品名');
+  if(data.products.some(p=>p.code===code))return alert('料碼已存在');
+  let img = await fileToDataURL(pImg.files[0]);
+  data.products.push({
+    code,name,unit,
+    length:Number(pLen.value)||0,
+    width:Number(pWid.value)||0,
+    height:Number(pHei.value)||0,
+    weight:Number(pWeight.value)||0,
+    image:img
+  });
+  pCode.value=pName.value=pUnit.value=pLen.value=pWid.value=pHei.value=pWeight.value='';
+  pImg.value='';
+  save();
+}
+
+function openEdit(code){
+  let p=data.products.find(x=>x.code===code);
+  if(!p)return;
+  eOldCode.value=p.code;
+  eCode.value=p.code;
+  eName.value=p.name;
+  eUnit.value=p.unit;
+  eLen.value=p.length||0;
+  eWid.value=p.width||0;
+  eHei.value=p.height||0;
+  eWeight.value=p.weight||0;
+  eImg.value='';
+  editModal.classList.add('active');
+}
+function closeEdit(){editModal.classList.remove('active');}
+
+async function saveEditProduct(){
+  let old=eOldCode.value;
+  let p=data.products.find(x=>x.code===old);
+  if(!p)return;
+  let newCode=eCode.value.trim(), newName=eName.value.trim(), newUnit=eUnit.value.trim()||'PCS';
+  if(!newCode||!newName)return alert('請輸入料碼與品名');
+  if(newCode!==old && data.products.some(x=>x.code===newCode))return alert('新的料碼已存在');
+
+  let newImg = await fileToDataURL(eImg.files[0]);
+  p.code=newCode; p.name=newName; p.unit=newUnit;
+  p.length=Number(eLen.value)||0; p.width=Number(eWid.value)||0; p.height=Number(eHei.value)||0; p.weight=Number(eWeight.value)||0;
+  if(newImg) p.image=newImg;
+
+  if(newCode!==old){
+    data.stock.forEach(s=>{if(s.productCode===old)s.productCode=newCode});
+    data.moves.forEach(m=>{if(m.productCode===old)m.productCode=newCode});
+    data.locations.forEach(l=>{if(l.lockProduct===old)l.lockProduct=newCode});
+  }
+  closeEdit();
+  save();
+}
+
+function delProduct(code){
+  if(data.stock.some(s=>s.productCode===code))return alert('此商品已有庫存，不能刪除');
+  if(data.locations.some(l=>l.lockProduct===code))return alert('此商品已被儲位鎖料碼使用，請先調整儲位設定');
+  data.products=data.products.filter(p=>p.code!==code); save();
+}
+
+function addLocation(){
+  let code=lCode.value.trim(), area=lArea.value.trim();
+  if(!code)return alert('請輸入儲位代碼');
+  if(data.locations.some(l=>l.code===code))return alert('儲位已存在');
+  data.locations.push({
+    code, area,
+    locked:lLocked.checked,
+    codeLocked:lCodeLocked.checked,
+    lockProduct:lProduct.value || ''
+  });
+  lCode.value=lArea.value=''; lLocked.checked=false; lCodeLocked.checked=false; lProduct.value='';
+  save();
+}
+
+function toggleLocation(code, key){
+  let l=data.locations.find(x=>x.code===code);
+  if(!l)return;
+  l[key]=!l[key];
+  save();
+}
+function delLocation(code){
+  if(data.stock.some(s=>s.loc===code))return alert('此儲位已有庫存，不能刪除');
+  data.locations=data.locations.filter(l=>l.code!==code);
+  save();
+}
+
+function validateLocation(locCode, productCode){
+  let loc=data.locations.find(l=>l.code===locCode);
+  if(!loc)return '儲位不存在，請先至「儲位管理」建立儲位';
+  if(loc.locked)return `儲位 ${locCode} 已鎖定，禁止入庫/調撥`;
+  if(loc.codeLocked && loc.lockProduct && loc.lockProduct!==productCode)return `儲位 ${locCode} 已鎖料碼，只允許 ${loc.lockProduct}`;
+  return '';
+}
+
+function inbound(){
+  let code=inProduct.value, batch=inBatch.value.trim(), loc=inLoc.value, qty=Number(inQty.value), vendor=inVendor.value.trim(), note=inNote.value.trim();
+  if(!code||!batch||!loc||qty<=0)return alert('請完整輸入入庫資料');
+  let msg=validateLocation(loc, code);
+  if(msg)return alert(msg);
+  let item=data.stock.find(s=>s.productCode===code&&s.batch===batch&&s.loc===loc);
+  if(item)item.qty+=qty; else data.stock.push({id:crypto.randomUUID(),productCode:code,batch,loc,qty,vendor});
+  addMove('入庫',code,batch,'-',loc,qty,note||vendor||'入庫');
+  inBatch.value=inQty.value=inVendor.value=inNote.value='';
+  save();
+}
+
+function transfer(){
+  let id=trStock.value, to=trLoc.value, qty=Number(trQty.value), reason=trReason.value.trim();
+  let from=data.stock.find(s=>s.id===id);
+  if(!from||!to||qty<=0)return alert('請完整輸入調撥資料');
+  if(from.qty<qty)return alert('來源庫存不足');
+  let msg=validateLocation(to, from.productCode);
+  if(msg)return alert(msg);
+
+  from.qty-=qty;
+  let target=data.stock.find(s=>s.productCode===from.productCode&&s.batch===from.batch&&s.loc===to);
+  if(target)target.qty+=qty; else data.stock.push({id:crypto.randomUUID(),productCode:from.productCode,batch:from.batch,loc:to,qty,vendor:from.vendor});
+  addMove('調撥',from.productCode,from.batch,from.loc,to,qty,reason||'調撥');
+  data.stock=data.stock.filter(s=>s.qty>0);
+  trQty.value=trReason.value='';
+  save();
+}
+
+function getProduct(code){return data.products.find(x=>x.code===code);}
+function getName(code){let p=getProduct(code);return p?p.name:'未建立商品';}
+function imgCell(p){return p.image ? `<img class="thumb" src="${p.image}">` : '<span class="hint">無</span>'}
+function locStatus(l){
+  let arr=[];
+  if(l.locked) arr.push('<span class="tag lock">鎖儲位</span>');
+  if(l.codeLocked) arr.push(`<span class="tag lock">鎖料碼 ${l.lockProduct||'未指定'}</span>`);
+  return arr.length?arr.join(' '):'<span class="tag">正常</span>';
+}
+function table(rows, cols){
+  if(!rows.length)return '<p class="hint">目前沒有資料。</p>';
+  return '<table><thead><tr>'+cols.map(c=>`<th>${c[0]}</th>`).join('')+'</tr></thead><tbody>'+
+  rows.map(r=>'<tr>'+cols.map(c=>`<td>${c[1](r)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+}
+
+function render(){
+  normalize();
+  statProducts.textContent=data.products.length;
+  statQty.textContent=data.stock.reduce((a,b)=>a+b.qty,0);
+  statLoc.textContent=data.locations.length;
+  statMove.textContent=data.moves.length;
+
+  productTable.innerHTML=table(data.products,[
+    ['圖片',r=>imgCell(r)],
+    ['料碼',r=>r.code],
+    ['品名',r=>r.name],
+    ['單位',r=>r.unit],
+    ['尺寸',r=>`${r.length||0} × ${r.width||0} × ${r.height||0} cm`],
+    ['重量',r=>`${r.weight||0} kg`],
+    ['操作',r=>`<button class="warn small" onclick="openEdit('${r.code}')">編輯</button> <button class="danger small" onclick="delProduct('${r.code}')">刪除</button>`]
+  ]);
+
+  let productOpts=data.products.map(p=>`<option value="${p.code}">${p.code}｜${p.name}</option>`).join('');
+  inProduct.innerHTML=productOpts || '<option value="">請先建立商品</option>';
+  lProduct.innerHTML='<option value="">不指定</option>'+productOpts;
+
+  locationTable.innerHTML=table(data.locations,[
+    ['儲位代碼',r=>`<span class="tag">${r.code}</span>`],
+    ['區域',r=>r.area||'-'],
+    ['狀態',r=>locStatus(r)],
+    ['操作',r=>`
+      <button class="secondary small" onclick="toggleLocation('${r.code}','locked')">${r.locked?'解除鎖儲位':'鎖儲位'}</button>
+      <button class="secondary small" onclick="toggleLocation('${r.code}','codeLocked')">${r.codeLocked?'解除鎖料碼':'鎖料碼'}</button>
+      <button class="danger small" onclick="delLocation('${r.code}')">刪除</button>`]
+  ]);
+
+  let locOpts=data.locations.map(l=>`<option value="${l.code}">${l.code}｜${l.area||'-'}${l.locked?'｜鎖定':''}${l.codeLocked?'｜鎖料碼 '+(l.lockProduct||'未指定'):''}</option>`).join('');
+  inLoc.innerHTML=locOpts || '<option value="">請先建立儲位</option>';
+  trLoc.innerHTML=locOpts || '<option value="">請先建立儲位</option>';
+
+  let key=(stockSearch?.value||'').toLowerCase();
+  let stocks=data.stock.filter(s=>(s.productCode+getName(s.productCode)+s.batch+s.loc).toLowerCase().includes(key));
+  stockTable.innerHTML=table(stocks,[
+    ['商品',r=>`${r.productCode}｜${getName(r.productCode)}`],
+    ['批號',r=>r.batch],
+    ['儲位',r=>`<span class="tag">${r.loc}</span>`],
+    ['數量',r=>r.qty],
+    ['供應商',r=>r.vendor||'-']
+  ]);
+
+  trStock.innerHTML=data.stock.map(s=>`<option value="${s.id}">${s.productCode}｜${getName(s.productCode)}｜${s.batch}｜${s.loc}｜庫存 ${s.qty}</option>`).join('') || '<option value="">目前無庫存</option>';
+
+  moveTable.innerHTML=table(data.moves,[
+    ['時間',r=>r.time],['類型',r=>r.type],['商品',r=>`${r.productCode}｜${getName(r.productCode)}`],
+    ['批號',r=>r.batch],['來源',r=>r.fromLoc],['目的',r=>r.toLoc],['數量',r=>r.qty],['備註',r=>r.note||'-']
+  ]);
+}
+
+function seed(){
+  data={
+    products:[
+      {code:'P-001',name:'軸承',unit:'PCS',length:10,width:8,height:5,weight:0.5,image:''},
+      {code:'P-002',name:'馬達模組',unit:'PCS',length:20,width:15,height:12,weight:2.2,image:''},
+      {code:'P-003',name:'包材紙箱',unit:'箱',length:45,width:30,height:25,weight:0.8,image:''}
+    ],
+    locations:[
+      {code:'A1-1-101',area:'A區零件架',locked:false,codeLocked:true,lockProduct:'P-001'},
+      {code:'A2-1-001',area:'A區模組架',locked:false,codeLocked:true,lockProduct:'P-002'},
+      {code:'PK-1-001',area:'包材區',locked:false,codeLocked:false,lockProduct:''},
+      {code:'NG-0-001',area:'待驗/異常區',locked:true,codeLocked:false,lockProduct:''},
+      {code:'OUT-1-1',area:'出貨暫存區',locked:false,codeLocked:false,lockProduct:''}
+    ],
+    stock:[],
+    moves:[]
+  };
+  data.stock=[
+    {id:crypto.randomUUID(),productCode:'P-001',batch:'B20260708-A',loc:'A1-1-101',qty:120,vendor:'大同零件'},
+    {id:crypto.randomUUID(),productCode:'P-002',batch:'B20260708-B',loc:'A2-1-001',qty:35,vendor:'流亞供應商'},
+    {id:crypto.randomUUID(),productCode:'P-003',batch:'B20260708-C',loc:'PK-1-001',qty:60,vendor:'包材商'}
+  ];
+  addMove('入庫','P-001','B20260708-A','-','A1-1-101',120,'展示資料');
+  addMove('入庫','P-002','B20260708-B','-','A2-1-001',35,'展示資料');
+  addMove('入庫','P-003','B20260708-C','-','PK-1-001',60,'展示資料');
+  save();
+}
+
+function clearAll(){if(confirm('確定清除展示資料？')){data={products:[],locations:[],stock:[],moves:[]};save();}}
+
+function downloadCSV(type){
+  let rows=[];
+  if(type==='stock'){
+    rows=[['料碼','品名','批號','儲位','數量','供應商'],...data.stock.map(s=>[s.productCode,getName(s.productCode),s.batch,s.loc,s.qty,s.vendor||''])];
+  }else if(type==='moves'){
+    rows=[['時間','類型','料碼','品名','批號','來源','目的','數量','備註'],...data.moves.map(m=>[m.time,m.type,m.productCode,getName(m.productCode),m.batch,m.fromLoc,m.toLoc,m.qty,m.note||''])];
+  }else if(type==='products'){
+    rows=[['料碼','品名','單位','長cm','寬cm','高cm','重量kg','有無圖片'],...data.products.map(p=>[p.code,p.name,p.unit,p.length||0,p.width||0,p.height||0,p.weight||0,p.image?'Y':'N'])];
+  }else if(type==='locations'){
+    rows=[['儲位代碼','區域','鎖儲位','鎖料碼','指定料碼'],...data.locations.map(l=>[l.code,l.area||'',l.locked?'Y':'N',l.codeLocked?'Y':'N',l.lockProduct||''])];
+  }
+  let csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+  let blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  let a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download={stock:'庫存報表.csv',moves:'異動紀錄.csv',products:'商品主檔.csv',locations:'儲位設定.csv'}[type];
+  a.click();
+}
+render();
+</script>
+</body>
+</html>
